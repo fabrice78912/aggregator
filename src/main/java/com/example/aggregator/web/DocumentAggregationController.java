@@ -3,7 +3,6 @@ package com.example.aggregator.web;
 import com.example.aggregator.model.DocumentHistory;
 import com.example.aggregator.service.DocumentAggregationService;
 import com.example.common_lib.model.response.ApiResponse1;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,12 +26,16 @@ public class DocumentAggregationController {
     return service.getClientHistory1(id);
   }*/
 
-  @PreAuthorize("hasAuthority('view-profile')")
+  /**
+   * Récupère l'historique des documents, archives et notifications d'un client. Accessible
+   * uniquement si le token JWT contient le rôle/autorité "agent".
+   *
+   * @param id l'identifiant du client
+   * @return Mono encapsulant ApiResponse1<DocumentHistory>
+   */
+  @PreAuthorize("hasAuthority('agent')")
   @GetMapping("/{id}/document-history")
-  public Mono<ResponseEntity<ApiResponse1<DocumentHistory>>> getDocumentHistory(
-      @PathVariable String id) {
-    return service
-        .getClientHistory2(id)
-        .map(response -> ResponseEntity.status(response.getStatusCode()).body(response));
+  public Mono<ApiResponse1<DocumentHistory>> getDocumentHistory(@PathVariable String id) {
+    return service.getClientHistory2(id);
   }
 }
