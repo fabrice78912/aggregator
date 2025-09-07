@@ -1,17 +1,58 @@
-name: CI-CD Pipeline with Security & Quality (Parallélisé)
+name: 'CI - Build, Scan, Push and Trigger CD'
 
 on:
   push:
     branches:
       - main
+      - dev
+      - rc-*
+      - feature/*
+  pull_request:
+    branches:
+      - main
+      - dev
+      - rc-*
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+  packages: write  # Pour GitHub Packages
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  ECR_REPO: ${{ secrets.ECR_REPO }}
+  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+  REPO_DEPLOY: ${{ secrets.REPO_DEPLOY }}
+  REPO_NAME: ${{ secrets.REPO_NAME }}
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  MAVEN_SETTINGS: .github/maven-settings.xml  # Chemin du settings.xml
+
 jobs:
-  # 1️⃣ Build & Tests + Coverage (Unit + Integration)
-  build-test:
+  detect-branch:
     runs-on: ubuntu-latest
     outputs:
-      jacoco-path: target/site/jacoco/
+      is-first-push: ${{ steps.check.outputs.is_first_push }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Vérifier si la branche existe déjà sur remote
+        id: check
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "is_first_push=false" >> $GITHUB_OUTPUT
+          else
+            echo "is_first_push=true" >> $GITHUB_OUTPUT
+
+  build-test:
+    needs: detect-branch
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,7 +61,6 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
 
       - name: Cache Maven dependencies
         uses: actions/cache@v4
@@ -30,11 +70,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Run Unit Tests
-        run: mvn test
-
-      - name: Run Integration Tests
-        run: mvn verify
+      - name: Build & Run Tests
+        run: mvn clean verify --settings $MAVEN_SETTINGS -Dmaven.test.failure.ignore=false
 
       - name: Upload JaCoCo report
         uses: actions/upload-artifact@v4
@@ -48,7 +85,6 @@ jobs:
           name: app-jar
           path: target/*.jar
 
-  # 2️⃣ SonarCloud Analysis
   sonar-analysis:
     needs: build-test
     runs-on: ubuntu-latest
@@ -61,33 +97,27 @@ jobs:
         with:
           java-version: '17'
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
       - name: Download JaCoCo report
         uses: actions/download-artifact@v4
         with:
           name: jacoco-report
           path: target/site/jacoco/
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v2
         with:
           projectBaseDir: .
           args: >
-            -Dsonar.organization=${{ secrets.SONAR_ORG }}
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.projectKey=my-project
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }}
+            -Dsonar.login=${{ env.SONAR_TOKEN }}
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # 3️⃣ Docker Build & Trivy Scan
+      - name: Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        with:
+          sonar-token: ${{ env.SONAR_TOKEN }}
+
   docker-build-scan:
     needs: build-test
     runs-on: ubuntu-latest
@@ -95,7 +125,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download artifact
+      - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: app-jar
@@ -103,49 +133,54 @@ jobs:
 
       - name: Build Docker image
         run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          docker build -t my-app:$IMAGE_TAG .
+          IMAGE_TAG=${GITHUB_SHA::8}
+          docker build -t $ECR_REGISTRY/${{ env.REPO_NAME }}:$IMAGE_TAG .
 
       - name: Trivy vulnerability scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: my-app:${{ github.sha }}
+          image-ref: $ECR_REGISTRY/${{ env.REPO_NAME }}:${GITHUB_SHA}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
 
-  # 4️⃣ Push Docker Image to AWS ECR via OIDC
-  docker-push-ecr:
-    needs: docker-build-scan
+  build-push:
+    needs: [docker-build-scan, sonar-analysis]
     runs-on: ubuntu-latest
-    permissions:           # ✅ Obligatoire pour OIDC
-      id-token: write
-      contents: read
+    if: ${{ (needs.detect-branch.outputs.is-first-push == 'false' || github.event_name == 'pull_request') && needs.sonar-analysis.outputs.quality-gate-status == 'OK' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::<AWS_ACCOUNT_ID>:role/<ROLE_FOR_GITHUB_OIDC>
-          aws-region: ca-central-1
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsECRRole
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - name: Set environment tag with date
+        run: |
+          SHA=$(echo "${GITHUB_SHA}" | cut -c1-8)
+          DATE=$(date +%Y%m%d-%H%M%S)
+          REF="${GITHUB_REF#refs/heads/}"
+          if [[ "$REF" == "main" ]]; then
+            ENV="prod"; TAG="prod-${SHA}-${DATE}"
+          elif [[ "$REF" == "dev" ]]; then
+            ENV="dev"; TAG="dev-${SHA}-${DATE}"
+          elif [[ "$REF" == rc-* ]]; then
+            ENV="staging"; TAG="staging-${SHA}-${DATE}"
+          elif [[ "$REF" == feature/* ]]; then
+            ENV="dev"; TAG="dev-${SHA}-${DATE}"
+          else
+            ENV="unknown"; TAG="unknown-${SHA}-${DATE}"
+          fi
+          echo "ENV=$ENV" >> $GITHUB_ENV
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
         with:
-          name: app-jar
-          path: target/
+          mask-password: true
 
-      - name: Build Docker image
-        run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          docker build -t my-app:$IMAGE_TAG .
-
-      - name: Push Docker image to Amazon ECR
-        run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          IMAGE_NAME=my-app
-          ECR_REGISTRY=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.ca-central-1.amazonaws.com
-          docker tag my-app:$IMAGE_TAG $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+      - name: Push Docker image
+        run: docker push $ECR_REGISTRY/${{ env.REPO_NAME }}:${{ env.TAG }}
