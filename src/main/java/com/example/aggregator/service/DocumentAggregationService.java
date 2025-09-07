@@ -89,21 +89,21 @@ public class DocumentAggregationService {
   public Mono<DocumentHistory> getClientHistory1(String clientId) {
 
     Flux<DocumentDto> documentsFlux =
-        WebClientUtils.callService(
+        WebClientUtils.sendGetRequest(
             documentClient,
             "/api/documents?clientId={id}",
             clientId,
             DocumentDto.class,
             "DocumentService");
     Flux<ArchiveDto> archivesFlux =
-        WebClientUtils.callService(
+        WebClientUtils.sendGetRequest(
             archiveClient,
             "/api/archive?clientId={id}",
             clientId,
             ArchiveDto.class,
             "ArchiveService");
     Flux<NotificationDto> notificationsFlux =
-        WebClientUtils.callService(
+        WebClientUtils.sendGetRequest(
             notificationClient,
             "/api/notifications?clientId={id}",
             clientId,
