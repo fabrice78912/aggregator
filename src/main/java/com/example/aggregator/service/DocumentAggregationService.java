@@ -7,6 +7,7 @@ import com.example.aggregator.model.dtos.NotificationDto;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -20,9 +21,9 @@ import java.util.List;
 @Slf4j
 public class DocumentAggregationService {
 
-    private final WebClient documentClient;
-    private final WebClient archiveClient;
-    private final WebClient notificationClient;
+    private final @Qualifier("documentClient") WebClient documentClient;
+    private final @Qualifier("archiveClient") WebClient archiveClient;
+    private final @Qualifier("notificationClient") WebClient notificationClient;
 
 
     @CircuitBreaker(name = "aggregationService", fallbackMethod = "fallbackAggregate")
