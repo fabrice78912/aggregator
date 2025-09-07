@@ -4,6 +4,7 @@ import com.example.aggregator.model.DocumentHistory;
 import com.example.aggregator.model.dtos.ArchiveDto;
 import com.example.aggregator.model.dtos.DocumentDto;
 import com.example.aggregator.model.dtos.NotificationDto;
+import com.example.aggregator.utils.WebClientUtils;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,9 +80,9 @@ public class DocumentAggregationService {
     @CircuitBreaker(name = "aggregationService", fallbackMethod = "fallbackAggregate")
     public Mono<DocumentHistory> getClientHistory1(String clientId) {
 
-        Flux<DocumentDto> documentsFlux = callService(documentClient, "/api/documents?clientId={id}", clientId, DocumentDto.class, "DocumentService");
-        Flux<ArchiveDto> archivesFlux = callService(archiveClient, "/api/archive?clientId={id}", clientId, ArchiveDto.class, "ArchiveService");
-        Flux<NotificationDto> notificationsFlux = callService(notificationClient, "/api/notifications?clientId={id}", clientId, NotificationDto.class, "NotificationService");
+        Flux<DocumentDto> documentsFlux = WebClientUtils.callService(documentClient, "/api/documents?clientId={id}", clientId, DocumentDto.class, "DocumentService");
+        Flux<ArchiveDto> archivesFlux = WebClientUtils.callService(archiveClient, "/api/archive?clientId={id}", clientId, ArchiveDto.class, "ArchiveService");
+        Flux<NotificationDto> notificationsFlux = WebClientUtils.callService(notificationClient, "/api/notifications?clientId={id}", clientId, NotificationDto.class, "NotificationService");
 
         return Mono.zip(
                 documentsFlux.collectList(),
@@ -94,34 +95,6 @@ public class DocumentAggregationService {
                 tuple.getT3()
         ));
     }
-
-    /**
-     * Méthode générique pour appeler un microservice avec WebClient, gérer les erreurs et les 503.
-     */
-    private <T> Flux<T> callService(WebClient client, String uri, String clientId, Class<T> clazz, String serviceName) {
-        return client.get()
-                .uri(uri, clientId)
-                .exchangeToFlux(response -> {
-                    if (response.statusCode().is2xxSuccessful()) {
-                        return response.bodyToFlux(clazz);
-                    } else if (response.statusCode().value() == 503) {
-                        log.warn("{} indisponible (503) pour client {}", serviceName, clientId);
-                        return Flux.error(new RuntimeException(serviceName + " indisponible"));
-                    } else {
-                        return response.bodyToMono(String.class)
-                                .flatMapMany(body -> {
-                                    log.error("{} HTTP {} - {}", serviceName, response.statusCode(), body);
-                                    return Flux.error(new RuntimeException(serviceName + " error: " + body));
-                                });
-                    }
-                })
-                .timeout(Duration.ofSeconds(2))
-                .onErrorResume(ex -> {
-                    log.error("Erreur lors de l'appel {}: {}", serviceName, ex.getMessage());
-                    return Flux.empty();
-                });
-    }
-
 
     private Mono<DocumentHistory> fallbackAggregate(String clientId, Throwable t) {
         log.warn("Fallback activé pour client {}: {}", clientId, t.getMessage());
