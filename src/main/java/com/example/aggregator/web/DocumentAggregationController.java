@@ -19,7 +19,6 @@ public class DocumentAggregationController {
         this.service = service;
     }
 
-
     @PreAuthorize("hasRole('AGENT') or hasRole('ADMIN')")
     @GetMapping("/{id}/document-history")
     public Mono<DocumentHistory> getDocumentHistory(@PathVariable String id) {
