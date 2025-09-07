@@ -10,11 +10,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.Collections;
-import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -25,44 +26,62 @@ public class DocumentAggregationService {
     private final @Qualifier("archiveClient") WebClient archiveClient;
     private final @Qualifier("notificationClient") WebClient notificationClient;
 
-
     @CircuitBreaker(name = "aggregationService", fallbackMethod = "fallbackAggregate")
     public Mono<DocumentHistory> getClientHistory(String clientId) {
-        Mono<List<DocumentDto>> documents = documentClient.get()
+
+        // 🔹 Documents en flux
+        Flux<DocumentDto> documentsFlux = documentClient.get()
                 .uri("/api/documents?clientId={id}", clientId)
                 .retrieve()
                 .bodyToFlux(DocumentDto.class)
-                .collectList()
                 .timeout(Duration.ofSeconds(2))
-                .onErrorReturn(Collections.emptyList());
+                .onErrorResume(ex -> {
+                    log.error("Erreur DocumentService: {}", ex.getMessage());
+                    return Flux.empty();
+                });
 
-        Mono<List<ArchiveDto>> archives = archiveClient.get()
+        // 🔹 Archives en flux
+        Flux<ArchiveDto> archivesFlux = archiveClient.get()
                 .uri("/api/archive?clientId={id}", clientId)
                 .retrieve()
                 .bodyToFlux(ArchiveDto.class)
-                .collectList()
                 .timeout(Duration.ofSeconds(2))
-                .onErrorReturn(Collections.emptyList());
+                .onErrorResume(ex -> {
+                    log.error("Erreur ArchiveService: {}", ex.getMessage());
+                    return Flux.empty();
+                });
 
-        Mono<List<NotificationDto>> notifications = notificationClient.get()
+        // 🔹 Notifications en flux
+        Flux<NotificationDto> notificationsFlux = notificationClient.get()
                 .uri("/api/notifications?clientId={id}", clientId)
                 .retrieve()
                 .bodyToFlux(NotificationDto.class)
-                .collectList()
                 .timeout(Duration.ofSeconds(2))
-                .onErrorReturn(Collections.emptyList());
+                .onErrorResume(ex -> {
+                    log.error("Erreur NotificationService: {}", ex.getMessage());
+                    return Flux.empty();
+                });
 
-        return Mono.zip(documents, archives, notifications)
-                .map(tuple -> new DocumentHistory(
-                        clientId,
-                        tuple.getT1(),
-                        tuple.getT2(),
-                        tuple.getT3()
-                ));
+        // 🔹 Agrégation finale → on convertit en List à la toute fin
+        return Mono.zip(
+                documentsFlux.collectList(),
+                archivesFlux.collectList(),
+                notificationsFlux.collectList()
+        ).map(tuple -> new DocumentHistory(
+                clientId,
+                tuple.getT1(),  // documents
+                tuple.getT2(),  // archives
+                tuple.getT3()   // notifications
+        ));
     }
 
     private Mono<DocumentHistory> fallbackAggregate(String clientId, Throwable t) {
-        log.info("Fallback activé pour client {}: {}", clientId, t.getMessage());
-        return Mono.just(new DocumentHistory(clientId, Collections.emptyList(), Collections.emptyList(), Collections.emptyList()));
+        log.warn("Fallback activé pour client {}: {}", clientId, t.getMessage());
+        return Mono.just(new DocumentHistory(
+                clientId,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList()
+        ));
     }
 }
