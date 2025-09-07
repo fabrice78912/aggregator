@@ -34,7 +34,7 @@ public class DocumentAggregationController {
   public Mono<ResponseEntity<ApiResponse1<DocumentHistory>>> getDocumentHistory(
       @PathVariable String id) {
     return service
-        .getClientHistory2(id)
+        .getClientHistory(id)
         .flatMap(
             resp -> {
               // Si ApiResponse1 indique un échec

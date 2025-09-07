@@ -37,7 +37,7 @@ class DocumentControllerIntegrationTest {
             List.of(new ArchiveDto("archive1", "", "")),
             List.of(new NotificationDto("notif1", "", "", "")));
 
-    Mockito.when(service.getClientHistory2("client1"))
+    Mockito.when(service.getClientHistory("client1"))
         .thenReturn(Mono.just(ApiResponse1.success("OK", history, 200)));
 
     webTestClient
@@ -73,7 +73,7 @@ class DocumentControllerIntegrationTest {
 
   @Test
   void testServiceUnavailable() {
-    Mockito.when(service.getClientHistory2("client1"))
+    Mockito.when(service.getClientHistory("client1"))
         .thenReturn(
             Mono.just(ApiResponse1.error("DocumentService est indisponible", "DOC_ERR", 503)));
 
