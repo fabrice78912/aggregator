@@ -17,7 +17,7 @@ on:
 permissions:
   id-token: write
   contents: read
-  packages: write  # Pour GitHub Packages
+  packages: write  # pour GitHub Packages
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -29,7 +29,7 @@ env:
   REPO_DEPLOY: ${{ secrets.REPO_DEPLOY }}
   REPO_NAME: ${{ secrets.REPO_NAME }}
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-  MAVEN_SETTINGS: .github/maven-settings.xml  # Chemin du settings.xml
+  MAVEN_SETTINGS: .github/maven-settings.xml  # chemin du settings.xml
 
 jobs:
   detect-branch:
@@ -37,25 +37,24 @@ jobs:
     outputs:
       is-first-push: ${{ steps.check.outputs.is_first_push }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Vérifier si la branche existe déjà sur remote
-        id: check
+
+      - id: check
         run: |
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
             echo "is_first_push=false" >> $GITHUB_OUTPUT
           else
             echo "is_first_push=true" >> $GITHUB_OUTPUT
+          fi
 
   build-test:
     needs: detect-branch
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -89,16 +88,14 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
 
-      - name: Download JaCoCo report
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: jacoco-report
           path: target/site/jacoco/
@@ -122,11 +119,9 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: app-jar
           path: target/
@@ -149,8 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ (needs.detect-branch.outputs.is-first-push == 'false' || github.event_name == 'pull_request') && needs.sonar-analysis.outputs.quality-gate-status == 'OK' }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -164,15 +158,20 @@ jobs:
           DATE=$(date +%Y%m%d-%H%M%S)
           REF="${GITHUB_REF#refs/heads/}"
           if [[ "$REF" == "main" ]]; then
-            ENV="prod"; TAG="prod-${SHA}-${DATE}"
+            ENV="prod"
+            TAG="prod-${SHA}-${DATE}"
           elif [[ "$REF" == "dev" ]]; then
-            ENV="dev"; TAG="dev-${SHA}-${DATE}"
+            ENV="dev"
+            TAG="dev-${SHA}-${DATE}"
           elif [[ "$REF" == rc-* ]]; then
-            ENV="staging"; TAG="staging-${SHA}-${DATE}"
+            ENV="staging"
+            TAG="staging-${SHA}-${DATE}"
           elif [[ "$REF" == feature/* ]]; then
-            ENV="dev"; TAG="dev-${SHA}-${DATE}"
+            ENV="dev"
+            TAG="dev-${SHA}-${DATE}"
           else
-            ENV="unknown"; TAG="unknown-${SHA}-${DATE}"
+            ENV="unknown"
+            TAG="unknown-${SHA}-${DATE}"
           fi
           echo "ENV=$ENV" >> $GITHUB_ENV
           echo "TAG=$TAG" >> $GITHUB_ENV
