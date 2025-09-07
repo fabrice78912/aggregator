@@ -3,6 +3,7 @@ package com.example.aggregator.web;
 import com.example.aggregator.model.DocumentHistory;
 import com.example.aggregator.service.DocumentAggregationService;
 import com.example.common_lib.model.response.ApiResponse1;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,22 +21,28 @@ public class DocumentAggregationController {
     this.service = service;
   }
 
-  /*  @PreAuthorize("hasRole('AGENT') or hasRole('ADMIN')")
-  @GetMapping("/{id}/document-history")
-  public Mono<DocumentHistory> getDocumentHistory(@PathVariable String id) {
-    return service.getClientHistory1(id);
-  }*/
-
   /**
-   * Récupère l'historique des documents, archives et notifications d'un client. Accessible
-   * uniquement si le token JWT contient le rôle/autorité "agent".
+   * Récupère l'historique des documents pour un client. Si la récupération échoue (ex:
+   * DocumentService indisponible), renvoie automatiquement le HTTP status correspondant via
+   * ResponseStatusException.
    *
    * @param id l'identifiant du client
    * @return Mono encapsulant ApiResponse1<DocumentHistory>
    */
-  @PreAuthorize("hasAuthority('agent')")
   @GetMapping("/{id}/document-history")
-  public Mono<ApiResponse1<DocumentHistory>> getDocumentHistory(@PathVariable String id) {
-    return service.getClientHistory2(id);
+  @PreAuthorize("hasAuthority('agent')")
+  public Mono<ResponseEntity<ApiResponse1<DocumentHistory>>> getDocumentHistory(
+      @PathVariable String id) {
+    return service
+        .getClientHistory2(id)
+        .flatMap(
+            resp -> {
+              // Si ApiResponse1 indique un échec
+              if (!resp.isSuccess()) {
+                return Mono.just(ResponseEntity.status(resp.getStatusCode()).body(resp));
+              }
+              // Sinon succès
+              return Mono.just(ResponseEntity.ok(resp));
+            });
   }
 }

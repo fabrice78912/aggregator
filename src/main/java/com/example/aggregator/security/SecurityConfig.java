@@ -54,10 +54,13 @@ public class SecurityConfig {
       "/actuator/health",
       "/swagger-ui/**",
       "/swagger-ui.html",
+      "/swagger-ui/index.html",
       "/v3/api-docs/**",
+      "/v3/api-docs.yaml",
       "/swagger-resources/**",
       "/login",
-      "/webjars/**"
+      "/webjars/**",
+      "/favicon.ico"
     };
 
     String[] protectedEndpoints = {
