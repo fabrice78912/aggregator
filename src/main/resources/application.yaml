@@ -37,9 +37,13 @@ spring:
               - openid
               - profile
               - email
-        provider:
-          keycloak:
-            issuer-uri: http://localhost:8080/realms/apiintegration
+#        provider:
+#          keycloak:
+#            issuer-uri: http://localhost:8080/realms/apiintegration
+
+      resourceserver:   # ✅ conservé
+        jwt:            # ✅ conservé
+          issuer-uri: http://localhost:8080/realms/apiintegration # ✅ seule option retenue
 
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/ma_db
