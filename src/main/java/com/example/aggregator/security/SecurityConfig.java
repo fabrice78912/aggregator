@@ -8,34 +8,35 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
-    @Bean
-    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
-        // Liste des chemins protégés par JWT
-        String[] protectedEndpoints = {
-                "/api/clients/**",
-                "/api/rapports/**",
-                "/api/documents/**",    // tu peux ajouter d'autres endpoints sensibles ici
-                "/api/archive/**",
-                "/api/notifications/**"
-        };
+  @Bean
+  public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+    // Liste des chemins protégés par JWT
+    String[] protectedEndpoints = {
+      "/api/clients/**",
+      "/api/rapports/**",
+      "/api/documents/**", // tu peux ajouter d'autres endpoints sensibles ici
+      "/api/archive/**",
+      "/api/notifications/**"
+    };
 
-        // Liste des chemins publics (accessibles sans authentification)
-        String[] publicEndpoints = {
-                "/api/public/**",
-                "/actuator/health",
-                "/swagger-ui/**",
-                "/v3/api-docs/**"
-        };
+    // Liste des chemins publics (accessibles sans authentification)
+    String[] publicEndpoints = {
+      "/api/public/**", "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**"
+    };
 
-        return http
-                .csrf().disable()
-                .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers(protectedEndpoints).authenticated()  // JWT requis
-                        .pathMatchers(publicEndpoints).permitAll()        // accessible sans auth
-                        .anyExchange().denyAll()                           // tout le reste est refusé
-                )
-                .oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt)
-                .build();
-    }
+    return http.csrf()
+        .disable()
+        .authorizeExchange(
+            exchanges ->
+                exchanges
+                    .pathMatchers(protectedEndpoints)
+                    .authenticated() // JWT requis
+                    .pathMatchers(publicEndpoints)
+                    .permitAll() // accessible sans auth
+                    .anyExchange()
+                    .denyAll() // tout le reste est refusé
+            )
+        .oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt)
+        .build();
+  }
 }
-

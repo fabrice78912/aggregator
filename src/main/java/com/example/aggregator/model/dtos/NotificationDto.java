@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class NotificationDto {
-    private String id;
-    private String documentId;
-    private String channel;
-    private String status;
+  private String id;
+  private String documentId;
+  private String channel;
+  private String status;
 }

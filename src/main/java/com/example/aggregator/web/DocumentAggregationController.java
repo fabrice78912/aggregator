@@ -13,15 +13,15 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api/clients")
 public class DocumentAggregationController {
 
-    private final DocumentAggregationService service;
+  private final DocumentAggregationService service;
 
-    public DocumentAggregationController(DocumentAggregationService service) {
-        this.service = service;
-    }
+  public DocumentAggregationController(DocumentAggregationService service) {
+    this.service = service;
+  }
 
-    @PreAuthorize("hasRole('AGENT') or hasRole('ADMIN')")
-    @GetMapping("/{id}/document-history")
-    public Mono<DocumentHistory> getDocumentHistory(@PathVariable String id) {
-        return service.getClientHistory1(id);
-    }
+  @PreAuthorize("hasRole('AGENT') or hasRole('ADMIN')")
+  @GetMapping("/{id}/document-history")
+  public Mono<DocumentHistory> getDocumentHistory(@PathVariable String id) {
+    return service.getClientHistory1(id);
+  }
 }

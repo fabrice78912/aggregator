@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ArchiveDto {
-    private String id;
-    private String documentId;
-    private String archivedAt;
+  private String id;
+  private String documentId;
+  private String archivedAt;
 }
