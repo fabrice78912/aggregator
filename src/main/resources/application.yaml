@@ -1,0 +1,54 @@
+config:
+  document-service: ${URL_DOCUMENT:http://document-service}
+  archiving-service: ${URL_ARCHIVE:http://archiving-service}
+  notification-service: ${URL_NOTIFICATION:http://notification-service}
+
+
+#resilience4j:
+#  circuitbreaker:
+#    configs:
+#      default:
+#        registerHealthIndicator: true
+#        slidingWindowType: COUNT_BASED
+#        slidingWindowSize: 10         # Nombre de dernières requêtes à considérer
+#        minimumNumberOfCalls: 5       # Nombre minimal de requêtes pour calculer l’état
+#        failureRateThreshold: 50      # % d’échecs avant ouverture
+#        waitDurationInOpenState: 10s  # Temps avant de passer en half-open
+#        permittedNumberOfCallsInHalfOpenState: 3
+#    instances:
+#      aggregationService:
+#        baseConfig: default
+#        slidingWindowSize: 15
+#        failureRateThreshold: 40
+#        waitDurationInOpenState: 5s
+#      documentService:
+#        baseConfig: default
+#        failureRateThreshold: 60
+#        waitDurationInOpenState: 8s
+#      archiveService:
+#        baseConfig: default
+#        slidingWindowSize: 20
+#        failureRateThreshold: 30
+#        waitDurationInOpenState: 15s
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      aggregationService:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 2
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 1
+
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/assurance-realm
+
+
