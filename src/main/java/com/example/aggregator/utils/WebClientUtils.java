@@ -1,5 +1,6 @@
 package com.example.aggregator.utils;
 
+import com.example.aggregator.constants.Messages;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -21,7 +22,8 @@ public class WebClientUtils {
               if (response.statusCode().is2xxSuccessful()) {
                 return response.bodyToFlux(clazz);
               } else if (response.statusCode().value() == 503) {
-                log.warn("{} indisponible (503) pour client {}", serviceName, clientId);
+                log.warn(
+                    "{} " + Messages.SERVICE_UNAVAILABLE_MESSAGE + " {}", serviceName, clientId);
                 return Flux.error(new RuntimeException(serviceName + " indisponible"));
               } else {
                 return response
