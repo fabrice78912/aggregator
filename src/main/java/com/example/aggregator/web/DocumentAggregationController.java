@@ -2,6 +2,8 @@ package com.example.aggregator.web;
 
 import com.example.aggregator.model.DocumentHistory;
 import com.example.aggregator.service.DocumentAggregationService;
+import com.example.common_lib.model.response.ApiResponse1;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,9 +21,18 @@ public class DocumentAggregationController {
     this.service = service;
   }
 
-  @PreAuthorize("hasRole('AGENT') or hasRole('ADMIN')")
+  /*  @PreAuthorize("hasRole('AGENT') or hasRole('ADMIN')")
   @GetMapping("/{id}/document-history")
   public Mono<DocumentHistory> getDocumentHistory(@PathVariable String id) {
     return service.getClientHistory1(id);
+  }*/
+
+  @PreAuthorize("hasAuthority('view-profile')")
+  @GetMapping("/{id}/document-history")
+  public Mono<ResponseEntity<ApiResponse1<DocumentHistory>>> getDocumentHistory(
+      @PathVariable String id) {
+    return service
+        .getClientHistory2(id)
+        .map(response -> ResponseEntity.status(response.getStatusCode()).body(response));
   }
 }

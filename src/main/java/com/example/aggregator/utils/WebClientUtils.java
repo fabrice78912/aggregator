@@ -10,7 +10,8 @@ import reactor.core.publisher.Flux;
 public class WebClientUtils {
 
   /**
-   * Méthode générique pour appeler un microservice avec WebClient, gérer les erreurs et les 503.
+   * Méthode générique pour appeler une methode HTTP get d'un microservice avec WebClient, gérer les
+   * erreurs et les 503.
    */
   public static <T> Flux<T> sendGetRequest(
       WebClient client, String uri, String clientId, Class<T> clazz, String serviceName) {
