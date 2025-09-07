@@ -9,17 +9,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WebClientConfig {
 
     @Bean
-    public WebClient.Builder webClientBuilder() {
-        return WebClient.builder();
-    }
-
-    // Optionnel si tu veux un WebClient par défaut
-    @Bean
-    public WebClient webClient(WebClient.Builder builder) {
-        return builder.build();
-    }
-
-    @Bean
     public WebClient documentClient(@Value("${config.document-service}") String baseUrl) {
         return WebClient.builder()
                 .baseUrl(baseUrl)
