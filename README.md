@@ -75,7 +75,7 @@ resilience4j:
 
 ## 📌 Exemple d’utilisation
 
-### Endpoint : `/api/aggregate`
+### Endpoint : `/api/clients`
 
 📥 **Requête**
 
